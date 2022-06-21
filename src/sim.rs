@@ -17,7 +17,7 @@ impl Planet {
   }
 
   pub fn radius(&self) -> f64 {
-    return self.mass / 100000.0;
+    return self.mass / 1000000.0;
   }
 
   pub fn sim(&mut self, planets: &Vec<Planet>) {
@@ -29,7 +29,7 @@ impl Planet {
       // Calculate angle
       let ydiff = p.y - self.y;
       let xdiff = p.x - self.x;
-      let ang = (ydiff/xdiff).atan();
+      let ang = ydiff.atan2(xdiff);
 
       // Calculate force
       let dist_squared = ydiff * ydiff + xdiff * xdiff;

@@ -1,25 +1,31 @@
 use raylib::prelude::*;
 mod sim;
 use sim::*;
+use rand::Rng;
+
+const WIDTH: i32 = 700;
+const HEIGHT: i32 = 700;
 
 fn main() {
     let (mut rl, thread) = raylib::init()
-        .size(640, 480)
+        .size(WIDTH, HEIGHT)
         .title("N-Body")
         .build();
     rl.set_target_fps(60);
 
     // Make planets
     let mut planets = Vec::new();
-    planets.push(Planet::new(1000000.0, 100.0, 100.0, 0));
-    planets.push(Planet::new(1000000.0, 100.0, 200.0, 1));
+    let mut rng = rand::thread_rng();
+    for i in 0..10 {
+        planets.push(Planet::new(rng.gen_range(1000000.0..10000000.0), rng.gen_range(0.0..WIDTH as f64), rng.gen_range(0.0..HEIGHT as f64), i));
+    }
 
     while !rl.window_should_close() {
         let mut d = rl.begin_drawing(&thread);
 
         d.clear_background(Color::BLACK);
         for p in planets.iter() {
-            d.draw_circle(p.x as i32, p.y as i32, p.mass as f32 / 100000.0, Color::BLUE)
+            d.draw_circle(p.x as i32, p.y as i32, p.radius() as f32, Color::BLUE)
         }
 
         // Simulate
