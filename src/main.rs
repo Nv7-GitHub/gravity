@@ -15,9 +15,11 @@ fn main() {
 
     // Make planets
     let mut planets = Vec::new();
+    let mut colors: Vec<Color> = Vec::new();
     let mut rng = rand::thread_rng();
-    for i in 0..10 {
-        planets.push(Planet::new(rng.gen_range(1000000.0..10000000.0), rng.gen_range(0.0..WIDTH as f64), rng.gen_range(0.0..HEIGHT as f64), i));
+    for i in 0..25 {
+        planets.push(Planet::new(rng.gen_range(100000.0..2500000.0), rng.gen_range(0.0..WIDTH as f64), rng.gen_range(0.0..HEIGHT as f64), i));
+        colors.push(Color::new(rng.gen_range(0..255), rng.gen_range(0..255), rng.gen_range(0..255), 255));
     }
 
     while !rl.window_should_close() {
@@ -25,7 +27,7 @@ fn main() {
 
         d.clear_background(Color::BLACK);
         for p in planets.iter() {
-            d.draw_circle(p.x as i32, p.y as i32, p.radius() as f32, Color::BLUE)
+            d.draw_circle(p.x as i32, p.y as i32, p.radius() as f32, colors[p.id])
         }
 
         // Simulate
@@ -33,6 +35,15 @@ fn main() {
         for (i, p) in planets.iter().enumerate() {
             let mut p = *p;
             p.sim(&planets);
+            new_planets[i] = p;
+        }
+        planets = new_planets;
+
+        // Collide
+        let mut new_planets = planets.clone();
+        for (i, p) in planets.iter().enumerate() {
+            let mut p = *p;
+            p.collide(&mut new_planets);
             new_planets[i] = p;
         }
         planets = new_planets;
