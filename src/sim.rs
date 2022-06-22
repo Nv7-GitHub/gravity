@@ -20,7 +20,7 @@ impl Planet {
   }
 
   pub fn radius(&self) -> f64 {
-    return self.mass / 100000.0;
+    return self.mass.sqrt() / 50.0;
   }
 
   pub fn sim(&mut self, planets: &Vec<Planet>) {

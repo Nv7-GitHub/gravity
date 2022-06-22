@@ -15,7 +15,7 @@ const TRAIL_WIDTH: f32 = 0.8;
 const TRAIL_MIN_DIST: f64 = 10.0;
 
 const MOUSE_MASS: f64 = 2500000.0;
-const PLANETS: usize = 100;
+const PLANETS: usize = 250;
 
 fn apply_scale(val: f64, off: i32, scale: f32) -> f32 {
     (((val as i32) + off) as f32) * scale
@@ -58,8 +58,8 @@ fn main() {
     planets.push(Planet::new(MOUSE_MASS, (START_WIDTH/2) as f64, (START_HEIGHT/2) as f64, 0));
     colors.push(Color::WHITE);
     trails.push(Vec::new());
-    for i in 0..PLANETS {
-        planets.push(Planet::new(rng.gen_range(100000.0..2500000.0), rng.gen_range(0.0..START_WIDTH as f64), rng.gen_range(0.0..START_HEIGHT as f64), i + 1));
+    for i in 1..PLANETS {
+        planets.push(Planet::new(rng.gen_range(100000.0..2500000.0), rng.gen_range(0.0..START_WIDTH as f64), rng.gen_range(0.0..START_HEIGHT as f64), i));
         colors.push(Color::new(rng.gen_range(0..255), rng.gen_range(0..255), rng.gen_range(0..255), 255));
         trails.push(Vec::new())
     }
@@ -89,6 +89,8 @@ fn main() {
         if rl.is_key_down(KEY_DOWN) {
             scale /= SCALESPEED;
         }
+        let width = rl.get_screen_width();
+        let height = rl.get_screen_height();
         
         if rl.is_mouse_button_down(MOUSE_LEFT_BUTTON) {
             let x = rl.get_mouse_x() as f32 / scale - offx as f32;
@@ -137,8 +139,28 @@ fn main() {
         let mut d = rl.begin_drawing(&thread);
 
         // Draw planets
+        let mut skipped = 0;
         d.clear_background(Color::BLACK);
         for p in planets.iter() {
+            let x = apply_scale(p.x, offx, scale) as i32;
+            let y = apply_scale(p.y, offy, scale) as i32;
+            if x < 0 || x >= width || y < 0 || y > height {
+                // Check trail
+                let mut canskip = true;
+                for pt in trails[p.id].iter() {
+                    let v = pt.vector(offx, offy, scale);
+                    let xv = v.x as i32;
+                    let yv = v.y as i32;
+                    if xv > 0 && xv <= width && yv > 0 && yv < height {
+                        canskip = false;
+                        break;
+                    }
+                }
+                if canskip {
+                    skipped += 1;
+                    continue;
+                }
+            }
             // Draw trail
             if trails[p.id].len() > 2 {
                 let mut prev: TrailPoint = trails[p.id][0];
@@ -152,10 +174,11 @@ fn main() {
                 d.draw_line_ex(prev.vector(offx, offy, scale), el.vector(offx, offy, scale), p.radius() as f32 * 2.0 * TRAIL_WIDTH * scale, colors[p.id]);
             }
             // Draw planet
-            d.draw_circle(apply_scale(p.x, offx, scale) as i32, apply_scale(p.y, offy, scale) as i32, p.radius() as f32 * scale, colors[p.id]);
+            d.draw_circle(x, y, p.radius() as f32 * scale, colors[p.id]);
         }
 
         // Draw FPS
         d.draw_fps(10, 10);
+        d.draw_text(format!("{}/{} planets rendered", planets.len() - skipped, planets.len()).as_str(), 10, height - 30, 20, Color::WHITE);
     }
 }
