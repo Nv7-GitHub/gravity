@@ -3,6 +3,7 @@ mod sim;
 use sim::*;
 use rand::Rng;
 use raylib::consts::KeyboardKey::*;
+use raylib::consts::MouseButton::*;
 
 const START_WIDTH: i32 = 700;
 const START_HEIGHT: i32 = 700;
@@ -12,6 +13,9 @@ const SCALESPEED: f32 = 1.05;
 const TRAIL_LEN: usize = 25;
 const TRAIL_WIDTH: f32 = 0.8;
 const TRAIL_MIN_DIST: f64 = 10.0;
+
+const MOUSE_MASS: f64 = 2500000.0;
+const PLANETS: usize = 100;
 
 fn apply_scale(val: f64, off: i32, scale: f32) -> f32 {
     (((val as i32) + off) as f32) * scale
@@ -49,8 +53,13 @@ fn main() {
     let mut colors: Vec<Color> = Vec::new();
     let mut trails: Vec<Vec<TrailPoint>> = Vec::new();
     let mut rng = rand::thread_rng();
-    for i in 0..10 {
-        planets.push(Planet::new(rng.gen_range(100000.0..2500000.0), rng.gen_range(0.0..START_WIDTH as f64), rng.gen_range(0.0..START_HEIGHT as f64), i));
+
+    // Make mouse planet
+    planets.push(Planet::new(MOUSE_MASS, (START_WIDTH/2) as f64, (START_HEIGHT/2) as f64, 0));
+    colors.push(Color::WHITE);
+    trails.push(Vec::new());
+    for i in 0..PLANETS {
+        planets.push(Planet::new(rng.gen_range(100000.0..2500000.0), rng.gen_range(0.0..START_WIDTH as f64), rng.gen_range(0.0..START_HEIGHT as f64), i + 1));
         colors.push(Color::new(rng.gen_range(0..255), rng.gen_range(0..255), rng.gen_range(0..255), 255));
         trails.push(Vec::new())
     }
@@ -81,23 +90,14 @@ fn main() {
             scale /= SCALESPEED;
         }
         
-
-        let mut d = rl.begin_drawing(&thread);
-
-        d.clear_background(Color::BLACK);
-        for p in planets.iter() {
-            // Draw planet
-            if trails[p.id].len() > 2 {
-                let mut prev: TrailPoint = trails[p.id][0];
-                for el in trails[p.id].iter().skip(1) {
-                    d.draw_line_ex(prev.vector(offx, offy, scale), el.vector(offx, offy, scale), p.radius() as f32 * 2.0 * TRAIL_WIDTH * scale, colors[p.id]);
-                    d.draw_circle_v(el.vector(offx, offy, scale), p.radius() as f32 * TRAIL_WIDTH * scale, colors[p.id]);
-                    prev = *el;
-                }
-                let el = TrailPoint(p.x, p.y);
-                d.draw_line_ex(prev.vector(offx, offy, scale), el.vector(offx, offy, scale), p.radius() as f32 * 2.0 * TRAIL_WIDTH * scale, colors[p.id]);
-            }
-            d.draw_circle(apply_scale(p.x, offx, scale) as i32, apply_scale(p.y, offy, scale) as i32, p.radius() as f32 * scale, colors[p.id]);
+        if rl.is_mouse_button_down(MOUSE_LEFT_BUTTON) {
+            let x = rl.get_mouse_x() as f32 / scale - offx as f32;
+            let y = rl.get_mouse_y() as i32 as f32 / scale - offy as f32;
+            planets[0].x = x as f64;
+            planets[0].y = y as f64;
+            planets[0].velx = 0.0;
+            planets[0].vely = 0.0;
+            trails[0] = Vec::new();
         }
 
         // Simulate
@@ -132,6 +132,27 @@ fn main() {
             } else {
                 trails[p.id].push(TrailPoint(p.x, p.y));
             }
+        }
+
+        let mut d = rl.begin_drawing(&thread);
+
+        // Draw planets
+        d.clear_background(Color::BLACK);
+        for p in planets.iter() {
+            // Draw trail
+            if trails[p.id].len() > 2 {
+                let mut prev: TrailPoint = trails[p.id][0];
+                for el in trails[p.id].iter().skip(1) {
+                    d.draw_line_ex(prev.vector(offx, offy, scale), el.vector(offx, offy, scale), p.radius() as f32 * 2.0 * TRAIL_WIDTH * scale, colors[p.id]);
+                    d.draw_circle_v(el.vector(offx, offy, scale), p.radius() as f32 * TRAIL_WIDTH * scale, colors[p.id]);
+                    prev = *el;
+                }
+                // Draw line from start of trail to planet
+                let el = TrailPoint(p.x, p.y);
+                d.draw_line_ex(prev.vector(offx, offy, scale), el.vector(offx, offy, scale), p.radius() as f32 * 2.0 * TRAIL_WIDTH * scale, colors[p.id]);
+            }
+            // Draw planet
+            d.draw_circle(apply_scale(p.x, offx, scale) as i32, apply_scale(p.y, offy, scale) as i32, p.radius() as f32 * scale, colors[p.id]);
         }
 
         // Draw FPS

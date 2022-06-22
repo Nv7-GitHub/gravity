@@ -11,7 +11,6 @@ pub struct Planet {
 }
 
 const G: f64 = 6.67430e-11f64;
-const SOFTEN: f64 = 5.0;
 
 impl Planet {
   pub fn new(mass: f64, x: f64, y: f64, id: usize) -> Self {
@@ -37,8 +36,7 @@ impl Planet {
 
       // Calculate force
       let dist_squared = ydiff * ydiff + xdiff * xdiff;
-      //let force = (G * self.mass * p.mass) / dist_squared;
-      let force = (G * self.mass * p.mass) / (dist_squared + SOFTEN).powf(1.5);
+      let force = (G * self.mass * p.mass) / dist_squared;
 
       // Apply force
       let force_x = force * ang.cos();
