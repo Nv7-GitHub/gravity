@@ -4,33 +4,55 @@ use sim::*;
 use rand::Rng;
 use raylib::consts::KeyboardKey::*;
 
-const WIDTH: i32 = 700;
-const HEIGHT: i32 = 700;
+const START_WIDTH: i32 = 700;
+const START_HEIGHT: i32 = 700;
+
 const SPEED: i32 = 5;
 const SCALESPEED: f32 = 1.05;
+const TRAIL_LEN: usize = 25;
+const TRAIL_WIDTH: f32 = 0.8;
+const TRAIL_MIN_DIST: f64 = 10.0;
 
-fn apply_scale(val: i32, scale: f32) -> i32 {
-    ((val as f32) * scale) as i32
+fn apply_scale(val: f64, off: i32, scale: f32) -> f32 {
+    (((val as i32) + off) as f32) * scale
 }
 
 fn calc_speed(scale: f32) -> i32 {
     ((SPEED as f32) / scale) as i32
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct TrailPoint(f64, f64);
+
+impl TrailPoint {
+    pub fn vector(&self, offx: i32, offy: i32, scale: f32) -> Vector2 {
+        Vector2::new(apply_scale(self.0, offx, scale), apply_scale(self.1, offy, scale))
+    }
+
+    pub fn largedist(&self, other: &TrailPoint) -> bool {
+        let xdiff = self.0 - other.0;
+        let ydiff = self.1 - other.1;
+        xdiff * xdiff + ydiff * ydiff > TRAIL_MIN_DIST * TRAIL_MIN_DIST
+    }
+}
+
 fn main() {
     let (mut rl, thread) = raylib::init()
-        .size(WIDTH, HEIGHT)
+        .size(START_WIDTH, START_HEIGHT)
         .title("N-Body")
+        .resizable()
         .build();
     rl.set_target_fps(60);
 
     // Make planets
     let mut planets = Vec::new();
     let mut colors: Vec<Color> = Vec::new();
+    let mut trails: Vec<Vec<TrailPoint>> = Vec::new();
     let mut rng = rand::thread_rng();
-    for i in 0..25 {
-        planets.push(Planet::new(rng.gen_range(100000.0..2500000.0), rng.gen_range(0.0..WIDTH as f64), rng.gen_range(0.0..HEIGHT as f64), i));
+    for i in 0..10 {
+        planets.push(Planet::new(rng.gen_range(100000.0..2500000.0), rng.gen_range(0.0..START_WIDTH as f64), rng.gen_range(0.0..START_HEIGHT as f64), i));
         colors.push(Color::new(rng.gen_range(0..255), rng.gen_range(0..255), rng.gen_range(0..255), 255));
+        trails.push(Vec::new())
     }
 
     // Transform
@@ -64,7 +86,18 @@ fn main() {
 
         d.clear_background(Color::BLACK);
         for p in planets.iter() {
-            d.draw_circle(apply_scale(p.x as i32 + offx, scale), apply_scale(p.y as i32 + offy, scale), p.radius() as f32 * scale, colors[p.id])
+            // Draw planet
+            if trails[p.id].len() > 2 {
+                let mut prev: TrailPoint = trails[p.id][0];
+                for el in trails[p.id].iter().skip(1) {
+                    d.draw_line_ex(prev.vector(offx, offy, scale), el.vector(offx, offy, scale), p.radius() as f32 * 2.0 * TRAIL_WIDTH * scale, colors[p.id]);
+                    d.draw_circle_v(el.vector(offx, offy, scale), p.radius() as f32 * TRAIL_WIDTH * scale, colors[p.id]);
+                    prev = *el;
+                }
+                let el = TrailPoint(p.x, p.y);
+                d.draw_line_ex(prev.vector(offx, offy, scale), el.vector(offx, offy, scale), p.radius() as f32 * 2.0 * TRAIL_WIDTH * scale, colors[p.id]);
+            }
+            d.draw_circle(apply_scale(p.x, offx, scale) as i32, apply_scale(p.y, offy, scale) as i32, p.radius() as f32 * scale, colors[p.id]);
         }
 
         // Simulate
@@ -84,6 +117,22 @@ fn main() {
             new_planets[i] = p;
         }
         planets = new_planets;
+
+        // Save trail
+        for p in planets.iter() {
+            if trails[p.id].len() > 2 {
+                let pt = TrailPoint(p.x, p.y);
+                if pt.largedist(trails[p.id].last().unwrap()) {
+                    trails[p.id].push(pt);
+                }
+
+                if trails[p.id].len() > TRAIL_LEN {
+                    trails[p.id].remove(0);
+                }
+            } else {
+                trails[p.id].push(TrailPoint(p.x, p.y));
+            }
+        }
 
         // Draw FPS
         d.draw_fps(10, 10);
