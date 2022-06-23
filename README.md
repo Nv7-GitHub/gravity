@@ -1,2 +1,2 @@
-# nbody
-My implementation for the N-Body problem!
+# gravity
+A gravity simulation!
